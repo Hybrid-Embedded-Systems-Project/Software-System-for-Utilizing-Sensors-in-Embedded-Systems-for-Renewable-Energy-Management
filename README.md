@@ -61,6 +61,13 @@ To customize the system:
 - Modify predictor model algorithm
 - Integrate with other weather and emissions datasets
 
+## Acknowledgements
+NumPy
+Pandas
+Scikit-Learn
+Matplotlib
+Requests
+
 ## Contributing
 
 Contributions are welcome. Please fork the repository, create a feature branch, commit your changes, and open a pull request.
