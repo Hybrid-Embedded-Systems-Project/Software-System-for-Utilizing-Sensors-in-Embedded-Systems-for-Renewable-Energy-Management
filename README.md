@@ -62,11 +62,11 @@ To customize the system:
 - Integrate with other weather and emissions datasets
 
 ## Acknowledgements
-NumPy
-Pandas
-Scikit-Learn
-Matplotlib
-Requests
+- NumPy
+- Pandas
+- Scikit-Learn
+- Matplotlib
+- Requests
 
 ## Contributing
 
