@@ -10,6 +10,7 @@ Original file is located at
 import random
 import requests
 import sys
+import time
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -225,21 +226,16 @@ def get_weather_data(latitude, longitude):
 def main():
     print("Weather Information")
     print("-------------------")
-
     latitude = float(input("Enter latitude: "))
     longitude = float(input("Enter longitude: "))
 
-    print()
-
     weather_data = get_weather_data(latitude, longitude)
-    print(weather_data)
-
     energy_system = EnergyManagementSystem()
 
-    # Choose and set the appropriate sensor
     weather_code = weather_data['weathercode']
     weather = weather_conditions[weather_code]
 
+    # Choose and set the appropriate sensor
     if weather in ["Clear sky", "Mainly clear, partly cloudy"]:
         energy_system.set_sensors(SolarSensor("Solar"), NonRenewableSensor("Coal"))
     elif weather == "Windy":
@@ -249,22 +245,33 @@ def main():
     else:
         energy_system.set_sensors(OtherSensor("Other"), NonRenewableSensor("Coal"))
 
+    battery_capacity = 500  # Example capacity
+    battery_storage = BatteryStorage(battery_capacity)
+    smart_grid_controller = SmartGridController(energy_system, battery_storage)
+
+    energy_demand = 100  # Example demand
+
+    # Timing mechanism for synchronous model
+    fetch_interval = 10  # Interval in seconds for each synchronous tick
+    duration = 60  # Duration in seconds for the synchronous loop to run
+    number_of_ticks = duration // fetch_interval  # Calculate how many ticks will occur
+
+    for tick in range(number_of_ticks):
+        print(f"Tick {tick + 1}/{number_of_ticks}")
+        # Simulate real-time energy data analysis
+        energy_system.analyze_energy_data(weather)
+        # Manage energy flow based on the current demand and weather
+        smart_grid_controller.manage_energy_flow(energy_demand, weather)
+
+        # Sleep until the next tick
+        time.sleep(fetch_interval)
+
     # Simulate real-time energy data analysis and emission comparison
     energy_system.analyze_energy_data(weather_conditions)
     emission_reduction = energy_system.compare_emissions(
         energy_system.renewable_sensor.get_adapted_data(weather_conditions),
         energy_system.non_renewable_sensor.get_adapted_data(weather_conditions)
     )
-
-    battery_capacity = 500  # Example capacity
-    battery_storage = BatteryStorage(battery_capacity)
-    energy_system = EnergyManagementSystem()
-    smart_grid_controller = SmartGridController(energy_system, battery_storage)
-
-    # Set sensors as before and provided weather condition
-    energy_system.set_sensors(SolarSensor("Solar"), NonRenewableSensor("Coal"))
-    energy_demand = 100  # Example demand
-    smart_grid_controller.manage_energy_flow(energy_demand, weather_conditions)
 
     # Future Emission Prediction and Visualization
     current_year = 2023
