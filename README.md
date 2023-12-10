@@ -25,6 +25,81 @@ The main components of the code include:
 - `SmartGridController`: Manages energy flow between renewable sources and the battery.
 - `FutureEmissionsPredictor`: Predicts future emissions savings through 2050.
 
+### Component Architecture:
+
+1. **Weather API:**
+   - **Responsibility:** Fetches real-time weather data.
+   - **API Used:** Open Meteo API (`https://api.open-meteo.com/v1/forecast`).
+
+2. **Sensors:**
+   - **Types:**
+     - Solar Sensor (e.g., Solar panels)
+     - Wind Sensor (e.g., Wind turbines)
+     - Hydro Sensor (e.g., Hydroelectric sensors)
+     - Other Sensor (Generic renewable sensor)
+     - Non-Renewable Sensor (e.g., Coal-based sensors)
+   - **Responsibility:** Collects real-time energy data.
+   - **Methods:**
+     - `get_real_time_data()`: Simulates energy values.
+     - `get_adapted_data(weather_condition)`: Adjusts data based on weather conditions.
+
+3. **Energy Management System (EMS):**
+   - **Responsibility:** Manages energy production, compliance checks, and emissions calculation.
+   - **Methods:**
+     - `calculate_total_energy(weather_condition)`: Calculates total energy generated.
+     - `analyze_energy_data(weather_condition)`: Analyzes energy data based on weather conditions.
+     - `check_compliance()`: Checks compliance with emission and safety standards.
+
+4. **Battery Storage:**
+   - **Responsibility:** Stores excess energy and releases stored energy when needed.
+   - **Methods:**
+     - `store_energy(energy)`: Stores energy in the main or auxiliary storage.
+     - `release_energy(energy_needed)`: Releases stored energy.
+     - `check_storage_status()`: Checks if the storage is full.
+     - `adjust_storage_levels()`: Adjusts storage levels in case of overcharge.
+
+5. **Smart Grid Controller:**
+   - **Responsibility:** Manages energy flow between the energy system and battery storage.
+   - **Methods:**
+     - `manage_energy_flow(demand, weather_condition)`: Manages energy flow based on demand and weather conditions.
+
+6. **System Monitor:**
+   - **Responsibility:** Logs system events.
+   - **Methods:**
+     - `log(message)`: Logs system messages.
+     - `get_logs()`: Retrieves system logs.
+
+7. **Future Emission Predictor:**
+   - **Responsibility:** Predicts future CO2 emission savings.
+   - **Methods:**
+     - `predict_future_savings(degree)`: Predicts future savings using polynomial regression.
+
+8. **Main Execution (Script):**
+   - **Responsibility:** Orchestrates the entire system, handles user input, and executes the simulation.
+   - **Methods:**
+     - `main()`: Main execution function that simulates the energy system.
+
+### Datasets:
+- **Weather Data:**
+  - **Source:** Open Meteo API (`https://api.open-meteo.com/v1/forecast`).
+  - **Frequency:** Real-time updates.
+
+### Frequency:
+- **Real-time Simulation:**
+  - The system simulates real-time energy data and weather conditions.
+  - Iterations are controlled by a synchronous loop with a specified fetch interval.
+
+### State Variables:
+- **Weather Condition:**
+  - Represents the current weather condition affecting energy production.
+- **Energy Demand:**
+  - Represents the demand for energy.
+- **Stored Energy (Main Battery and Auxiliary Storage):**
+  - Represents the current energy stored in the main battery and auxiliary storage.
+- **Emission Reduction:**
+  - Represents the calculated reduction in CO2 emissions.
+
+
 ## Running the Code
 
 To run the smart grid analytics:
