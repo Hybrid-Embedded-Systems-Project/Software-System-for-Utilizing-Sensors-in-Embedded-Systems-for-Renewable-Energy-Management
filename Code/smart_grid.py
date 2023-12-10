@@ -11,6 +11,8 @@ import random
 import requests
 import sys
 import time
+import logging
+import unittest
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -71,6 +73,22 @@ class Sensor:
     def get_real_time_data(self):
         return random.randint(80, 120)  # Simulated energy value
 
+    def get_redundant_data(self):
+        # In a real-world scenario, this would fetch data from a backup source
+        return random.randint(80, 120)
+
+# class for System Monitoring
+class SystemMonitor:
+    def __init__(self):
+        self.logs = []
+
+    def log(self, message):
+        self.logs.append(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+        print(self.logs[-1])  # For demonstration purposes, we print the log
+
+    def get_logs(self):
+        return self.logs
+
 # Renewable sensors
 class SolarSensor(Sensor):
     def get_adapted_data(self, weather_condition):
@@ -104,6 +122,41 @@ class EnergyManagementSystem:
     def __init__(self):
         self.renewable_sensor = None
         self.non_renewable_sensor = None
+        # Assume compliance variables are set here based on regulatory standards
+        self.compliance_standards = {"emission_limits": 0.5, "safety_standards": True}
+
+    def check_compliance(self):
+        # Placeholder for compliance check logic
+        # In a real-world application, this would involve complex logic and data analysis
+        if self.calculate_total_energy("sunny") > self.compliance_standards["emission_limits"]:
+            print("Warning: Emission limit exceeded")
+        if not self.compliance_standards["safety_standards"]:
+            print("Warning: Safety standards not met")
+
+    def system_state_machine(self):
+        # Simple state machine implementation
+        states = ['Initializing', 'Running', 'Error', 'Shutdown']
+        current_state = 0  # Initializing
+
+        try:
+            while current_state < len(states) - 1:
+                if current_state == 0:  # Initializing
+                    # Initialization logic here
+                    current_state += 1  # Move to Running
+                elif current_state == 1:  # Running
+                    if random.choice([True, False]):
+                        raise Exception("Simulated Error")
+                    time.sleep(10)  # Simulating operational period
+                elif current_state == 2:  # Error
+                    # Error handling logic here
+                    print("Error encountered. Attempting to recover.")
+                    current_state = 0  # Return to Initializing for recovery
+            current_state = 3  # Move to Shutdown
+        except Exception as e:
+            print(f"Exception occurred: {e}")
+            current_state = 3  # Move to Shutdown
+        finally:
+            print(f"System state: {states[current_state]}")
 
     def set_sensors(self, renewable_sensor, non_renewable_sensor):
         self.renewable_sensor = renewable_sensor
@@ -151,19 +204,65 @@ class EnergyManagementSystem:
         return emission_reduction
 
 class BatteryStorage:
-    def __init__(self, capacity):
-        self.capacity = capacity  # Maximum storage capacity in units
-        self.stored_energy = 0    # Current stored energy
+
+    def __init__(self, capacity, aux_capacity):
+        self.capacity = capacity  # Maximum main battery storage capacity
+        self.aux_capacity = aux_capacity  # Maximum auxiliary storage capacity
+        self.stored_energy = 0    # Current energy in main battery storage
+        self.auxiliary_storage = 0  # Current energy in auxiliary storage
 
     def store_energy(self, energy):
-        # Store energy in the battery, respecting its capacity
-        self.stored_energy = min(self.stored_energy + energy, self.capacity)
+        if self.is_full():
+            self.alert_storage_full()
+            return
+
+        # Storing energy in the main battery storage
+        potential_energy = self.stored_energy + energy
+        if potential_energy <= self.capacity:
+            self.stored_energy = potential_energy
+        else:
+            # Redirecting excess energy to auxiliary storage
+            excess_energy = potential_energy - self.capacity
+            self.stored_energy = self.capacity
+            self.redirect_to_auxiliary(excess_energy)
+
+    def redirect_to_auxiliary(self, excess_energy):
+        print(f"Redirecting {excess_energy} units of excess energy to auxiliary storage.")
+        potential_aux_energy = self.auxiliary_storage + excess_energy
+        if potential_aux_energy <= self.aux_capacity:
+            self.auxiliary_storage = potential_aux_energy
+            print()
+        else:
+            print("Auxiliary storage is also full. Halting excess energy storage.")
+            self.auxiliary_storage = self.aux_capacity  # Fill the auxiliary storage completely
+
+    def is_full(self):
+        return self.stored_energy >= self.capacity and self.auxiliary_storage >= self.aux_capacity
 
     def release_energy(self, energy_needed):
         # Release energy from the battery, respecting its current storage
         energy_released = min(self.stored_energy, energy_needed)
         self.stored_energy -= energy_released
         return energy_released
+
+    def check_storage_status(self):
+        if self.stored_energy > self.capacity:
+            print("Warning: Battery is overcharged. Adjusting storage levels.")
+            self.adjust_storage_levels()
+
+    def adjust_storage_levels(self):
+        excess_energy = self.stored_energy - self.capacity
+        self.stored_energy = self.capacity
+        self.redirect_to_auxiliary(excess_energy)
+
+    def check_safety(self):
+        if self.stored_energy > self.capacity * 1.1:  # Overcharge check
+            logging.error("Danger: Battery overcharged!")
+            sys.exit("Emergency Shutdown: Battery Overcharge")
+
+        if self.stored_energy < 0:  # Deep discharge check
+            logging.error("Danger: Battery deep discharged!")
+            sys.exit("Emergency Shutdown: Battery Deep Discharge")
 
 class SmartGridController:
     def __init__(self, energy_system, battery_storage):
@@ -173,19 +272,41 @@ class SmartGridController:
     def manage_energy_flow(self, demand, weather_condition):
         generated_energy = self.energy_system.calculate_total_energy(weather_condition)
         energy_deficit = demand - generated_energy
-        energy_from_battery = 0
 
         if energy_deficit > 0:
             energy_from_battery = self.battery_storage.release_energy(energy_deficit)
-            print(f"Energy released from battery: {energy_from_battery} units")
         else:
             excess_energy = -energy_deficit
-            self.battery_storage.store_energy(excess_energy)
-            print(f"Excess energy stored: {excess_energy} units")
+            if not self.battery_storage.is_full():
+                self.battery_storage.store_energy(excess_energy)
+            else:
+                print("Warning: Energy storage halted as all storages are full.")
 
-        # Update smart grid status
-        print(f"Total energy supplied: {generated_energy - energy_deficit + energy_from_battery} units")
+        self.battery_storage.check_storage_status()
+
         print(f"Remaining battery storage: {self.battery_storage.stored_energy} units")
+        print(f"Energy in auxiliary storage: {self.battery_storage.auxiliary_storage} units")
+
+# Automated Testing Suite
+class TestEnergySystem(unittest.TestCase):
+    def setUp(self):
+        self.solar_sensor = SolarSensor("Solar")
+        self.non_renewable_sensor = NonRenewableSensor("Coal")
+        self.energy_system = EnergyManagementSystem()
+        self.energy_system.set_sensors(self.solar_sensor, self.non_renewable_sensor)
+
+    def test_sensor_data(self):
+        self.assertIsInstance(self.solar_sensor.get_real_time_data(), int)
+        self.assertIsInstance(self.non_renewable_sensor.get_real_time_data(), int)
+
+    def test_emission_calculation(self):
+        self.energy_system.analyze_energy_data("sunny")
+        # Assuming some test values for emissions
+        self.assertGreaterEqual(self.energy_system.calculate_total_energy("sunny"), 0)
+
+    def test_compliance_check(self):
+        self.energy_system.check_compliance()
+        # In a real-world scenario, this test would be more complex and check specific compliance outputs
 
 class FutureEmissionPredictor:
     def __init__(self, current_year, final_year, current_emission_reduction):
@@ -201,9 +322,8 @@ class FutureEmissionPredictor:
         future_years = np.arange(self.current_year, self.final_year + 1).reshape(-1, 1)
         return future_years.flatten(), polynomial_model.predict(future_years)
 
-# Function to get weather data
+# Function to get weather data with exception handling
 def get_weather_data(latitude, longitude):
-
     final_url = api_url.format(lat=latitude, lon=longitude)
 
     try:
@@ -222,76 +342,121 @@ def get_weather_data(latitude, longitude):
         print(f"Error getting weather data: {err}")
         sys.exit(1)
 
-# Main execution
+    if 'current_weather' not in data:
+        logging.error("Weather data is not available.")
+        sys.exit("Failed to retrieve weather data.")
+
+    return data['current_weather']
+
+# Main execution with additional features
 def main():
-    print("Weather Information")
-    print("-------------------")
-    latitude = float(input("Enter latitude: "))
-    longitude = float(input("Enter longitude: "))
+    # Initialize System Monitor
+    monitor = SystemMonitor()
+    monitor.log("System started")
 
-    weather_data = get_weather_data(latitude, longitude)
-    energy_system = EnergyManagementSystem()
+    # Exception Handling and Input Validation
+    try:
+        latitude = float(input("Enter latitude: "))
+        longitude = float(input("Enter longitude: "))
 
-    weather_code = weather_data['weathercode']
-    weather = weather_conditions[weather_code]
+        # Validate latitude and longitude
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise ValueError("Invalid latitude or longitude")
 
-    # Choose and set the appropriate sensor
-    if weather in ["Clear sky", "Mainly clear, partly cloudy"]:
-        energy_system.set_sensors(SolarSensor("Solar"), NonRenewableSensor("Coal"))
-    elif weather == "Windy":
-        energy_system.set_sensors(WindSensor("Wind"), NonRenewableSensor("Coal"))
-    elif weather in ["Rainy", "Stormy"]:
-        energy_system.set_sensors(HydroSensor("Hydro"), NonRenewableSensor("Coal"))
-    else:
-        energy_system.set_sensors(OtherSensor("Other"), NonRenewableSensor("Coal"))
+        weather_data = get_weather_data(latitude, longitude)
+        energy_system = EnergyManagementSystem()
 
-    battery_capacity = 500  # Example capacity
-    battery_storage = BatteryStorage(battery_capacity)
-    smart_grid_controller = SmartGridController(energy_system, battery_storage)
+        weather_code = weather_data['weathercode']
+        weather = weather_conditions[weather_code]
 
-    energy_demand = 100  # Example demand
+        # Choose and set the appropriate sensor
+        if weather in ["Clear sky", "Mainly clear, partly cloudy"]:
+            energy_system.set_sensors(SolarSensor("Solar"), NonRenewableSensor("Coal"))
+        elif weather == "Windy":
+            energy_system.set_sensors(WindSensor("Wind"), NonRenewableSensor("Coal"))
+        elif weather in ["Rainy", "Stormy"]:
+            energy_system.set_sensors(HydroSensor("Hydro"), NonRenewableSensor("Coal"))
+        else:
+            energy_system.set_sensors(OtherSensor("Other"), NonRenewableSensor("Coal"))
 
-    # Timing mechanism for synchronous model
-    fetch_interval = 10  # Interval in seconds for each synchronous tick
-    duration = 60  # Duration in seconds for the synchronous loop to run
-    number_of_ticks = duration // fetch_interval  # Calculate how many ticks will occur
+        battery_capacity = 200  # Example capacity
+        aux_capacity = 100
+        battery_storage = BatteryStorage(battery_capacity, aux_capacity)
+        smart_grid_controller = SmartGridController(energy_system, battery_storage)
 
-    for tick in range(number_of_ticks):
-        print(f"Tick {tick + 1}/{number_of_ticks}")
-        # Simulate real-time energy data analysis
+        energy_demand = 100  # Example demand
+
+        # Timing mechanism for synchronous model
+        fetch_interval = 10  # Interval in seconds for each synchronous tick
+        duration = 60  # Duration in seconds for the synchronous loop to run
+        number_of_ticks = duration // fetch_interval  # Calculate how many ticks will occur
+
+        for tick in range(number_of_ticks):
+            monitor.log(f"Tick {tick + 1}/{number_of_ticks}")
+            # Simulate real-time energy data analysis
+            energy_system.analyze_energy_data(weather)
+            # Manage energy flow based on the current demand and weather
+            smart_grid_controller.manage_energy_flow(energy_demand, weather)
+
+            battery_storage.check_safety()  # Check battery safety
+
+            time.sleep(fetch_interval)
+
+        # Simulate real-time energy data analysis and emission comparison
         energy_system.analyze_energy_data(weather)
-        # Manage energy flow based on the current demand and weather
-        smart_grid_controller.manage_energy_flow(energy_demand, weather)
+        emission_reduction = energy_system.compare_emissions(
+            energy_system.renewable_sensor.get_adapted_data(weather),
+            energy_system.non_renewable_sensor.get_adapted_data(weather)
+        )
 
-        # Sleep until the next tick
-        time.sleep(fetch_interval)
+        # Future Emission Prediction and Visualization
+        current_year = 2023
+        final_year = 2050
+        current_emission_reduction = emission_reduction  # From the previous part of the code
+        predictor = FutureEmissionPredictor(current_year, final_year, current_emission_reduction)
+        future_years, predicted_savings = predictor.predict_future_savings()
 
-    # Simulate real-time energy data analysis and emission comparison
-    energy_system.analyze_energy_data(weather_conditions)
-    emission_reduction = energy_system.compare_emissions(
-        energy_system.renewable_sensor.get_adapted_data(weather_conditions),
-        energy_system.non_renewable_sensor.get_adapted_data(weather_conditions)
-    )
+        # Display the predicted CO2 emission savings
+        for year, saving in zip(future_years, predicted_savings):
+            monitor.log(f"Year: {year}, Predicted CO2 Emission Saving: {saving:.2f} metric tons")
 
-    # Future Emission Prediction and Visualization
-    current_year = 2023
-    final_year = 2050
-    current_emission_reduction = emission_reduction  # From the previous part of the code
-    predictor = FutureEmissionPredictor(current_year, final_year, current_emission_reduction)
-    future_years, predicted_savings = predictor.predict_future_savings()
+        # Visualization of the predicted savings
+        plt.figure(figsize=(12, 6))
+        plt.plot(future_years, predicted_savings, 'b-', label='Predicted CO2 Savings')
+        plt.title('Predicted CO2 Emission Savings from Renewable Energy (2023-2050)')
+        plt.xlabel('Year')
+        plt.ylabel('CO2 Savings (Metric Tons)')
+        plt.legend()
+        plt.show()
 
-    # Display the predicted CO2 emission savings
-    for year, saving in zip(future_years, predicted_savings):
-        print(f"Year: {year}, Predicted CO2 Emission Saving: {saving:.2f} metric tons")
+    except ValueError as ve:
+        monitor.log(f"Input error: {ve}")
+        sys.exit(1)
+    except Exception as e:
+        monitor.log(f"Unhandled exception: {e}")
+        sys.exit(1)
+    finally:
+        monitor.log("System shutdown")
 
-    # Visualization of the predicted savings
-    plt.figure(figsize=(12, 6))
-    plt.plot(future_years, predicted_savings, 'b-', label='Predicted CO2 Savings')
-    plt.title('Predicted CO2 Emission Savings from Renewable Energy (2023-2050)')
-    plt.xlabel('Year')
-    plt.ylabel('CO2 Savings (Metric Tons)')
-    plt.legend()
-    plt.show()
+# Automated Testing Suite
+class TestEnergySystem(unittest.TestCase):
+    def setUp(self):
+        self.solar_sensor = SolarSensor("Solar")
+        self.non_renewable_sensor = NonRenewableSensor("Coal")
+        self.energy_system = EnergyManagementSystem()
+        self.energy_system.set_sensors(self.solar_sensor, self.non_renewable_sensor)
+
+    def test_sensor_data(self):
+        self.assertIsInstance(self.solar_sensor.get_real_time_data(), int)
+        self.assertIsInstance(self.non_renewable_sensor.get_real_time_data(), int)
+
+    def test_emission_calculation(self):
+        self.energy_system.analyze_energy_data("sunny")
+        self.assertGreaterEqual(self.energy_system.calculate_total_energy("sunny"), 0)
+
+    def test_compliance_check(self):
+        self.energy_system.check_compliance()
 
 if __name__ == "__main__":
+    unittest.main(argv=['first-arg-is-ignored'], exit=False)
     main()
