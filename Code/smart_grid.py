@@ -65,17 +65,6 @@ weather_conditions = {
 # API link
 api_url = "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
 
-# Sensor classes
-class Sensor:
-    def __init__(self, sensor_type):
-        self.sensor_type = sensor_type
-
-    def get_real_time_data(self):
-        return random.randint(80, 120)  # Simulated energy value
-
-    def get_redundant_data(self):
-        # In a real-world scenario, this would fetch data from a backup source
-        return random.randint(80, 120)
 
 # class for System Monitoring
 class SystemMonitor:
@@ -88,6 +77,14 @@ class SystemMonitor:
 
     def get_logs(self):
         return self.logs
+
+# Sensor classes
+class Sensor:
+    def __init__(self, sensor_type):
+        self.sensor_type = sensor_type
+
+    def get_real_time_data(self):
+        return random.randint(80, 120)  # Simulated energy value
 
 # Renewable sensors
 class SolarSensor(Sensor):
@@ -122,41 +119,6 @@ class EnergyManagementSystem:
     def __init__(self):
         self.renewable_sensor = None
         self.non_renewable_sensor = None
-        # Assume compliance variables are set here based on regulatory standards
-        self.compliance_standards = {"emission_limits": 0.5, "safety_standards": True}
-
-    def check_compliance(self):
-        # Placeholder for compliance check logic
-        # In a real-world application, this would involve complex logic and data analysis
-        if self.calculate_total_energy("sunny") > self.compliance_standards["emission_limits"]:
-            print("Warning: Emission limit exceeded")
-        if not self.compliance_standards["safety_standards"]:
-            print("Warning: Safety standards not met")
-
-    def system_state_machine(self):
-        # Simple state machine implementation
-        states = ['Initializing', 'Running', 'Error', 'Shutdown']
-        current_state = 0  # Initializing
-
-        try:
-            while current_state < len(states) - 1:
-                if current_state == 0:  # Initializing
-                    # Initialization logic here
-                    current_state += 1  # Move to Running
-                elif current_state == 1:  # Running
-                    if random.choice([True, False]):
-                        raise Exception("Simulated Error")
-                    time.sleep(10)  # Simulating operational period
-                elif current_state == 2:  # Error
-                    # Error handling logic here
-                    print("Error encountered. Attempting to recover.")
-                    current_state = 0  # Return to Initializing for recovery
-            current_state = 3  # Move to Shutdown
-        except Exception as e:
-            print(f"Exception occurred: {e}")
-            current_state = 3  # Move to Shutdown
-        finally:
-            print(f"System state: {states[current_state]}")
 
     def set_sensors(self, renewable_sensor, non_renewable_sensor):
         self.renewable_sensor = renewable_sensor
@@ -287,27 +249,6 @@ class SmartGridController:
         print(f"Remaining battery storage: {self.battery_storage.stored_energy} units")
         print(f"Energy in auxiliary storage: {self.battery_storage.auxiliary_storage} units")
 
-# Automated Testing Suite
-class TestEnergySystem(unittest.TestCase):
-    def setUp(self):
-        self.solar_sensor = SolarSensor("Solar")
-        self.non_renewable_sensor = NonRenewableSensor("Coal")
-        self.energy_system = EnergyManagementSystem()
-        self.energy_system.set_sensors(self.solar_sensor, self.non_renewable_sensor)
-
-    def test_sensor_data(self):
-        self.assertIsInstance(self.solar_sensor.get_real_time_data(), int)
-        self.assertIsInstance(self.non_renewable_sensor.get_real_time_data(), int)
-
-    def test_emission_calculation(self):
-        self.energy_system.analyze_energy_data("sunny")
-        # Assuming some test values for emissions
-        self.assertGreaterEqual(self.energy_system.calculate_total_energy("sunny"), 0)
-
-    def test_compliance_check(self):
-        self.energy_system.check_compliance()
-        # In a real-world scenario, this test would be more complex and check specific compliance outputs
-
 class FutureEmissionPredictor:
     def __init__(self, current_year, final_year, current_emission_reduction):
         self.current_year = current_year
@@ -322,8 +263,9 @@ class FutureEmissionPredictor:
         future_years = np.arange(self.current_year, self.final_year + 1).reshape(-1, 1)
         return future_years.flatten(), polynomial_model.predict(future_years)
 
-# Function to get weather data with exception handling
+# Function to get weather data
 def get_weather_data(latitude, longitude):
+
     final_url = api_url.format(lat=latitude, lon=longitude)
 
     try:
@@ -348,97 +290,89 @@ def get_weather_data(latitude, longitude):
 
     return data['current_weather']
 
-# Main execution with additional features
+# Main execution
 def main():
+
     # Initialize System Monitor
     monitor = SystemMonitor()
     monitor.log("System started")
 
-    # Exception Handling and Input Validation
-    try:
-        latitude = float(input("Enter latitude: "))
-        longitude = float(input("Enter longitude: "))
+    print("Weather Information")
+    print("-------------------")
+    latitude = float(input("Enter latitude: "))
+    longitude = float(input("Enter longitude: "))
 
-        # Validate latitude and longitude
-        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
-            raise ValueError("Invalid latitude or longitude")
+    weather_data = get_weather_data(latitude, longitude)
+    energy_system = EnergyManagementSystem()
 
-        weather_data = get_weather_data(latitude, longitude)
-        energy_system = EnergyManagementSystem()
+    weather_code = weather_data['weathercode']
+    weather = weather_conditions[weather_code]
 
-        weather_code = weather_data['weathercode']
-        weather = weather_conditions[weather_code]
+    # Choose and set the appropriate sensor
+    if weather in ["Clear sky", "Mainly clear, partly cloudy"]:
+        energy_system.set_sensors(SolarSensor("Solar"), NonRenewableSensor("Coal"))
+    elif weather == "Windy":
+        energy_system.set_sensors(WindSensor("Wind"), NonRenewableSensor("Coal"))
+    elif weather in ["Rainy", "Stormy"]:
+        energy_system.set_sensors(HydroSensor("Hydro"), NonRenewableSensor("Coal"))
+    else:
+        energy_system.set_sensors(OtherSensor("Other"), NonRenewableSensor("Coal"))
 
-        # Choose and set the appropriate sensor
-        if weather in ["Clear sky", "Mainly clear, partly cloudy"]:
-            energy_system.set_sensors(SolarSensor("Solar"), NonRenewableSensor("Coal"))
-        elif weather == "Windy":
-            energy_system.set_sensors(WindSensor("Wind"), NonRenewableSensor("Coal"))
-        elif weather in ["Rainy", "Stormy"]:
-            energy_system.set_sensors(HydroSensor("Hydro"), NonRenewableSensor("Coal"))
-        else:
-            energy_system.set_sensors(OtherSensor("Other"), NonRenewableSensor("Coal"))
+    battery_capacity = 200  # Example capacity
+    aux_capacity = 100
+    battery_storage = BatteryStorage(battery_capacity, aux_capacity)
+    smart_grid_controller = SmartGridController(energy_system, battery_storage)
 
-        battery_capacity = 200  # Example capacity
-        aux_capacity = 100
-        battery_storage = BatteryStorage(battery_capacity, aux_capacity)
-        smart_grid_controller = SmartGridController(energy_system, battery_storage)
+    energy_demand = 100  # Example demand
 
-        energy_demand = 100  # Example demand
+    # Timing mechanism for synchronous model
+    fetch_interval = 10  # Interval in seconds for each synchronous tick
+    duration = 60  # Duration in seconds for the synchronous loop to run
+    number_of_ticks = duration // fetch_interval  # Calculate how many ticks will occur
 
-        # Timing mechanism for synchronous model
-        fetch_interval = 10  # Interval in seconds for each synchronous tick
-        duration = 60  # Duration in seconds for the synchronous loop to run
-        number_of_ticks = duration // fetch_interval  # Calculate how many ticks will occur
-
-        for tick in range(number_of_ticks):
-            monitor.log(f"Tick {tick + 1}/{number_of_ticks}")
-            # Simulate real-time energy data analysis
-            energy_system.analyze_energy_data(weather)
-            # Manage energy flow based on the current demand and weather
-            smart_grid_controller.manage_energy_flow(energy_demand, weather)
-
-            battery_storage.check_safety()  # Check battery safety
-
-            time.sleep(fetch_interval)
-
-        # Simulate real-time energy data analysis and emission comparison
+    for tick in range(number_of_ticks):
+        print(f"Tick {tick + 1}/{number_of_ticks}")
+        # Simulate real-time energy data analysis
         energy_system.analyze_energy_data(weather)
-        emission_reduction = energy_system.compare_emissions(
-            energy_system.renewable_sensor.get_adapted_data(weather),
-            energy_system.non_renewable_sensor.get_adapted_data(weather)
-        )
+        # Manage energy flow based on the current demand and weather
+        smart_grid_controller.manage_energy_flow(energy_demand, weather)
 
-        # Future Emission Prediction and Visualization
-        current_year = 2023
-        final_year = 2050
-        current_emission_reduction = emission_reduction  # From the previous part of the code
-        predictor = FutureEmissionPredictor(current_year, final_year, current_emission_reduction)
-        future_years, predicted_savings = predictor.predict_future_savings()
+        battery_storage.check_safety()  # Check battery safety
 
-        # Display the predicted CO2 emission savings
-        for year, saving in zip(future_years, predicted_savings):
-            monitor.log(f"Year: {year}, Predicted CO2 Emission Saving: {saving:.2f} metric tons")
+        time.sleep(fetch_interval)
 
-        # Visualization of the predicted savings
-        plt.figure(figsize=(12, 6))
-        plt.plot(future_years, predicted_savings, 'b-', label='Predicted CO2 Savings')
-        plt.title('Predicted CO2 Emission Savings from Renewable Energy (2023-2050)')
-        plt.xlabel('Year')
-        plt.ylabel('CO2 Savings (Metric Tons)')
-        plt.legend()
-        plt.show()
 
-    except ValueError as ve:
-        monitor.log(f"Input error: {ve}")
-        sys.exit(1)
-    except Exception as e:
-        monitor.log(f"Unhandled exception: {e}")
-        sys.exit(1)
-    finally:
-        monitor.log("System shutdown")
+    # Simulate real-time energy data analysis and emission comparison
+    energy_system.analyze_energy_data(weather_conditions)
+    emission_reduction = energy_system.compare_emissions(
+        energy_system.renewable_sensor.get_adapted_data(weather_conditions),
+        energy_system.non_renewable_sensor.get_adapted_data(weather_conditions)
+    )
 
-# Automated Testing Suite
+    # Future Emission Prediction and Visualization
+    current_year = 2023
+    final_year = 2050
+    current_emission_reduction = emission_reduction  # From the previous part of the code
+    predictor = FutureEmissionPredictor(current_year, final_year, current_emission_reduction)
+    future_years, predicted_savings = predictor.predict_future_savings()
+
+    # Display the predicted CO2 emission savings
+    for year, saving in zip(future_years, predicted_savings):
+        print(f"Year: {year}, Predicted CO2 Emission Saving: {saving:.2f} metric tons")
+
+    # Visualization of the predicted savings
+    plt.figure(figsize=(12, 6))
+    plt.plot(future_years, predicted_savings, 'b-', label='Predicted CO2 Savings')
+    plt.title('Predicted CO2 Emission Savings from Renewable Energy (2023-2050)')
+    plt.xlabel('Year')
+    plt.ylabel('CO2 Savings (Metric Tons)')
+    plt.legend()
+    plt.show()
+
+    monitor.log("System shutdown")
+
+
+#Automated Testing Suite
 class TestEnergySystem(unittest.TestCase):
     def setUp(self):
         self.solar_sensor = SolarSensor("Solar")
@@ -458,5 +392,4 @@ class TestEnergySystem(unittest.TestCase):
         self.energy_system.check_compliance()
 
 if __name__ == "__main__":
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)
     main()
